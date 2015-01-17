@@ -1,4 +1,5 @@
 #include "board.h"
+#include "stm32f10x.h"
 
 #define RF22B_PWRSTATE_POWERDOWN    0x00
 #define RF22B_PWRSTATE_READY        0x01
@@ -21,14 +22,14 @@ void selectRFM(uint8_t which)
         digitalHi(GPIOB, GPIO_Pin_12);
     }
 
-    if (which == 2)
-    {
-        digitalLo(GPIOC, GPIO_Pin_15);
-    }
-    else
-    {
-        digitalHi(GPIOC, GPIO_Pin_15);
-    }
+    // if (which == 2)
+    // {
+    //     digitalLo(GPIOC, GPIO_Pin_15);
+    // }
+    // else
+    // {
+    //     digitalHi(GPIOC, GPIO_Pin_15);
+    // }
 }
 
 uint8_t rfmReadRegister(uint8_t which, uint8_t reg)
@@ -62,7 +63,11 @@ void rfmWriteRegister(uint8_t which, uint8_t reg, uint8_t data)
 
 void rfmSetChannel(uint8_t unit, uint8_t ch)
 {
-    rfmWriteRegister(unit, 0x79, ch);
+//    rfmWriteRegister(unit, 0x79, ch);
+    uint8_t magicLSB = (bind_data.rf_magic & 0xff) ^ ch;
+    rfmWriteRegister(unit, 0x79, bind_data.hopchannel[ch]);
+    rfmWriteRegister(unit, 0x3a + 3, magicLSB);
+    rfmWriteRegister(unit, 0x3f + 3, magicLSB);
 }
 
 uint8_t rfmGetRSSI(uint8_t unit)
@@ -128,7 +133,10 @@ void init_rfm(uint8_t unit, uint8_t isbind)
     rfmWriteRegister(unit, 0x0a, 0x05);
     rfmWriteRegister(unit, 0x0b, 0x12);    // gpio0 TX State
     rfmWriteRegister(unit, 0x0c, 0x15);    // gpio1 RX State
-    rfmWriteRegister(unit, 0x0d, 0xfd);    // gpio 2 micro-controller clk output
+//    rfmWriteRegister(unit, 0x0d, 0xfd);    // gpio 2 micro-controller vdd output
+    rfmWriteRegister(unit, 0x0d, 0x1F);    // gpio 2 micro-controller gnd output
+//    rfmWriteRegister(unit, 0x0d, 0x00);    // gpio 2 micro-controller clk output
+//    rfmWriteRegister(unit, 0x0a, 0x01);    // micro-controller clk 15MHz
     rfmWriteRegister(unit, 0x0e, 0x00);    // gpio    0, 1,2 NO OTHER FUNCTION.
 
     setModemRegs(unit, isbind ? &bind_params : &modem_params[bind_data.modem_params]);
@@ -354,11 +362,11 @@ void EXTI15_10_IRQHandler(void)
         rfmIntFired[0] = 1;
     }
 
-    if (EXTI_GetITStatus(EXTI_Line14) == SET)
-    {
-        EXTI_ClearITPendingBit(EXTI_Line14);
-        rfmIntFired[1] = 1;
-    }
+    // if (EXTI_GetITStatus(EXTI_Line14) == SET)
+    // {
+    //     EXTI_ClearITPendingBit(EXTI_Line14);
+    //     rfmIntFired[1] = 1;
+    // }
 }
 
 int8_t rfmCheckInt(uint8_t unit)
@@ -382,7 +390,7 @@ static void setupRFMints(void)
     EXTI_InitTypeDef EXTI_InitStructure;
     NVIC_InitTypeDef NVIC_InitStructure;
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13 | GPIO_Pin_14;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13/* | GPIO_Pin_14*/;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
     GPIO_Init(GPIOC, &GPIO_InitStructure);
@@ -394,12 +402,12 @@ static void setupRFMints(void)
     EXTI_InitStructure.EXTI_LineCmd = ENABLE;
     EXTI_Init(&EXTI_InitStructure);
 
-    GPIO_EXTILineConfig(GPIO_PortSourceGPIOC, GPIO_PinSource14);
-    EXTI_InitStructure.EXTI_Line = EXTI_Line14;
-    EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-    EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
-    EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-    EXTI_Init(&EXTI_InitStructure);
+    // GPIO_EXTILineConfig(GPIO_PortSourceGPIOC, GPIO_PinSource14);
+    // EXTI_InitStructure.EXTI_Line = EXTI_Line14;
+    // EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+    // EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
+    // EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+    // EXTI_Init(&EXTI_InitStructure);
 
     // Enable and set EXTI10-15 Interrupt to the lowest priority
     NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;
@@ -423,10 +431,10 @@ void rfmPreInit(void)
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15; // CS2
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
-    GPIO_Init(GPIOC, &GPIO_InitStructure);
+    // GPIO_InitStructure.GPIO_Pin = GPIO_Pin_15; // CS2
+    // GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    // GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_PP;
+    // GPIO_Init(GPIOC, &GPIO_InitStructure);
     selectRFM(0);
     setupRFMints();
 

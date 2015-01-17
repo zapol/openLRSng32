@@ -3,15 +3,18 @@
 #include "rscombo.h"
 #endif
 
+extern __IO int debug_continue;
+
 static void _putc(void *p, char c)
 {
-  uartWrite(c);
+//  uartWrite(c);
+  USB_Send_Data(c);
 }
 
 void checkReflash(void)
 {
   uint32_t i;
-  LEDB_ON();
+  // LEDB_ON();
 
   for (i = 0; i < 50; i++) {
     delay(100);
@@ -30,7 +33,7 @@ void checkReflash(void)
     }
   }
 
-  LEDB_OFF();
+  // LEDB_OFF();
   LEDG_OFF();
 }
 
@@ -462,7 +465,6 @@ loop(void)
 
 #ifdef USE_ECC
     rfmReceive(rfmRXed, rx_ecc_buf, getPacketSize() + NPAR);
-    printf("rxd\r\n");
 
     //printf(rx_ecc_buf);
     if (rs_decode_data(rx_ecc_buf, getPacketSize() + NPAR)) {
@@ -475,6 +477,7 @@ loop(void)
     memcpy(rx_buf, rx_ecc_buf, getPacketSize());
 #else
     rfmReceive(rfmRXed, rx_buf, getPacketSize());
+    printf("rxd\r\n");
 #endif
 
     last_afcc_value = rfmGetAFCC(1);
@@ -484,6 +487,7 @@ loop(void)
       unpackChannels(bind_data.flags & 7, PPM, rx_buf + 1);
 
       for (i = 0; i < PPM_CHANNELS; i++) {
+    	  printf("PPM%d: %d\n", i, PPM[i]);
 
         if (rx_config.RSSIpwm == i) {
           setPWM(rx_config.RSSIpwm, servoBits2Us(smoothRSSI << 2));
@@ -518,7 +522,7 @@ loop(void)
 
     if (firstpack == 0) {
       firstpack = 1;
-      LEDB_ON();
+      // LEDB_ON();
 
       drv_adc_config_t adc_params;
       adc_params.analogEnable = 0;
@@ -645,12 +649,13 @@ loop(void)
     RSSI_sum += last_rssi_value;    // tally up for average
     RSSI_count++;
 
-    if (RSSI_count > 20) {
+    if (RSSI_count > 8) {
       RSSI_sum /= RSSI_count;
       RSSI_sum = constrain(RSSI_sum, 45, 255);
       smoothRSSI = (uint8_t)(((uint16_t) smoothRSSI * 6
                               + (uint16_t) RSSI_sum * 2) / 8);
       set_RSSI_output(smoothRSSI);
+      printf("RSSI: %d\n",smoothRSSI);
       RSSI_sum = 0;
       RSSI_count = 0;
     }
@@ -666,7 +671,7 @@ loop(void)
         linkLossTimeMs = timeMs;
         last_beacon = 0;
       }
-
+      printf("lost pkt - fasthop\n");
       lostpack++;
       last_pack_timeUs += getInterval(&bind_data);
       willhop = 1;
@@ -684,6 +689,7 @@ loop(void)
     } else if ((lostpack == hopcount)
                && ((timeUs - last_pack_timeUs) > (getInterval(&bind_data) * hopcount))) {
       // hop slowly to allow resync with TX
+      printf("lost pkt - slowhop\n");
       willhop = 1;
       smoothRSSI = 0;
       set_RSSI_output(smoothRSSI);
@@ -732,12 +738,13 @@ loop(void)
   if (willhop == 1) {
     RF_channel++;
 
-    if (RF_channel >= hopcount) { //TODO: look into why kha didn't do this
-      RF_channel = 0;
-    }
-
-    rfmSetChannel(1, bind_data.hopchannel[RF_channel]);
-    rfmSetChannel(2, bind_data.hopchannel[RF_channel]);
+    if ((RF_channel == MAXHOPS) || (bind_data.hopchannel[RF_channel] == 0))
+	{
+		RF_channel = 0;
+	}
+    printf("Hop to %d\t%d\n", RF_channel, bind_data.hopchannel[RF_channel]);
+    rfmSetChannel(1,RF_channel);
+//    rfmSetChannel(2, bind_data.hopchannel[RF_channel]);
     willhop = 0;
   }
 
@@ -746,13 +753,25 @@ loop(void)
 int main(void)
 {
   uint8_t i;
-
   systemInit();
   delay(10);
+
+  uint32_t newtime=millis() + 1000;
+  uint32_t currenttime=millis() + 1000;
 
   init_printf(NULL, _putc);
   uartInit(115200);
   delay(100);
+
+  while (!debug_continue)
+  {
+      currenttime = millis();
+      if(currenttime == newtime)
+      {
+          newtime =currenttime + 1000;
+          printf("Press any key to continue\n");
+      }
+  }
 
   //checkReflash();
 

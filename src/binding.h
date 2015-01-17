@@ -69,14 +69,15 @@
 #define MAX_INTERVAL 255
 
 #define BINDING_POWER     0x06 // 1 mW
-#define BINDING_VERSION   9
+#define OPENLRSNG_VERSION   0x0373
 
 //#define EEPROM_OFFSET     0x00
 //#define EEPROM_RX_OFFSET  0x40 // RX specific config struct
 
 #define TELEMETRY_PACKETSIZE 9
 
-#define BIND_MAGIC (0xDEC1BE15 + BINDING_VERSION)
+#define BIND_MAGIC (0xDEC1BE15 + (OPENLRSNG_VERSION & 0xfff0))
+#define BINDING_VERSION ((OPENLRSNG_VERSION & 0x0ff0)>>4)
 
 extern uint8_t default_hop_list[];
 

@@ -29,6 +29,8 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "stm32f10x_it.h"
+#include "usb_lib.h"
+#include "usb_istr.h"
 
 /* Private typedef -----------------------------------------------------------*/
 /* Private define ------------------------------------------------------------*/
@@ -169,6 +171,11 @@ void PendSV_Handler(void)
 /*void PPP_IRQHandler(void)
 {
 }*/
+
+void USB_LP_CAN1_RX0_IRQHandler(void)
+{
+  USB_Istr();
+}
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
 

@@ -31,7 +31,7 @@ PROJECT_USB = $(PROJECT).USB
 
 # core type
 CORE = cortex-m3
-
+OSCILLATOR = 8000000
 # linker script
 LD_SCRIPT = stm32_flash.ld
 LD_USB_SCRIPT = stm32_flash_usb.ld
@@ -43,7 +43,7 @@ OUT_DIR = out
 CXX_DEFS = -DSTM32F10X_MD
 
 # C definitions
-C_DEFS = -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER
+C_DEFS = -DSTM32F10X_MD -DUSE_STDPERIPH_DRIVER -DHSE_VALUE="((uint32_t)$(OSCILLATOR))"
 #C_DEFS += -DDISABLE_PA10
 #C_DEFS += -DUSB_DISC_DEV=GPIOD -DUSB_DISC_PIN=GPIO_Pin_11 -DUSB_DISC_RCC=RCC_APB2Periph_GPIOA
 
@@ -56,6 +56,7 @@ INC_DIRS = src Libraries \
 	Libraries/CMSIS/Include \
 	Libraries/CMSIS/Device/ST/STM32F10x/Include \
 	Libraries/STM32F10x_StdPeriph_Driver/inc \
+	Libraries/STM32_USB-FS-Device_Driver/inc \
 	src/drv \
 	src/sensors
 
@@ -141,11 +142,11 @@ CORE_FLAGS = -mcpu=$(CORE) -mthumb
 
 # flags for C++ compiler
 #CXX_FLAGS = -std=$(CXX_STD) -g -ggdb3 -fno-rtti -fno-exceptions -fverbose-asm -Wa,-ahlms=$(OUT_DIR_F)$(notdir $(<:.$(CXX_EXT)=.lst))
-CXX_FLAGS = -std=$(CXX_STD) -fno-rtti -fno-exceptions -fverbose-asm -Wa,-ahlms=$(OUT_DIR_F)$(notdir $(<:.$(CXX_EXT)=.lst))
+CXX_FLAGS = -std=$(CXX_STD) -fno-rtti -fno-exceptions -g -fverbose-asm -Wa,-ahlms=$(OUT_DIR_F)$(notdir $(<:.$(CXX_EXT)=.lst))
 
 # flags for C compiler
 #C_FLAGS = -std=$(C_STD) -g -ggdb3 -fverbose-asm -Wa,-ahlms=$(OUT_DIR_F)$(notdir $(<:.$(C_EXT)=.lst))
-C_FLAGS = -std=$(C_STD) -fverbose-asm -Wa,-ahlms=$(OUT_DIR_F)$(notdir $(<:.$(C_EXT)=.lst))
+C_FLAGS = -std=$(C_STD) -g -fverbose-asm -Wa,-ahlms=$(OUT_DIR_F)$(notdir $(<:.$(C_EXT)=.lst))
 C_FLAGS += -fsingle-precision-constant
 
 # flags for assembler
@@ -208,6 +209,44 @@ LD_USB_FLAGS_F = $(CORE_FLAGS) $(LD_USB_FLAGS) $(LIB_DIRS_F)
 #contents of output directory
 GENERATED = $(wildcard $(patsubst %, $(OUT_DIR_F)*.%, bin d dmp elf hex lss lst map o))
 
+# ---------------------------------------------------------------------------
+# Options for OpenOCD flash-programming
+# see openocd.pdf/openocd.texi for further information
+#
+OOCD_LOADFILE+=$(OUT_DIR)/$(PROJECT).elf
+# if OpenOCD is in the $PATH just set OPENOCDEXE=openocd
+OOCD_EXE=openocd
+# debug level
+OOCD_CL=-d1
+#OOCD_CL=-d3
+# interface and board/target settings (using the OOCD target-library here)
+OOCD_CL+=-f /usr/share/openocd/scripts/interface/oocdlink.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
+# initialize
+OOCD_CL+=-c init
+# enable "fast mode" - can be disabled for tests
+#OOCD_CL+=-c "fast enable"
+# show the targets
+OOCD_CL+=-c targets
+# commands to prepare flash-write
+OOCD_CL+= -c "reset halt"
+# increase JTAG frequency a little bit - can be disabled for tests
+OOCD_CL+= -c "jtag_khz 1200"
+# flash-write and -verify
+OOCD_CL+=-c "flash write_image erase $(OOCD_LOADFILE)" -c "verify_image $(OOCD_LOADFILE)"
+# reset target
+OOCD_CL+=-c "reset run"
+# terminate OOCD after programming
+OOCD_CL+=-c shutdown
+# ---------------------------------------------------------------------------
+
+program: $(OUT_DIR)/$(PROJECT).elf
+	@echo "Programming with OPENOCD"
+	$(OOCD_EXE) $(OOCD_CL)
+reset:
+	openocd -d0 -f /usr/share/openocd/scripts/interface/oocdlink.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg -c init -c targets -c "jtag_khz 1200"  -c "reset run" -c shutdown
+debug:
+	openocd -d0 -f /usr/share/openocd/scripts/interface/oocdlink.cfg -f /usr/share/openocd/scripts/target/stm32f1x.cfg
+
 #=============================================================================#
 # make all
 #=============================================================================#
@@ -228,7 +267,7 @@ $(USBELF) : $(LD_USB_SCRIPT)
 
 $(ELF) : $(OBJS)  $(LD_SCRIPT)
 	@echo 'Linking target: $(ELF)'
-	$(CXX) $(LD_FLAGS_F) $(OBJS) $(LIBS) -o $@
+	$(CC) $(LD_FLAGS_F) $(OBJS) $(LIBS) -o $@
 	@echo ' '
 
 #-----------------------------------------------------------------------------#
@@ -237,7 +276,7 @@ $(ELF) : $(OBJS)  $(LD_SCRIPT)
 
 $(USBELF) : $(ELF) $(OBJS) $(LD_USB_SCRIPT)
 	@echo 'Linking target: $(USBELF)'
-	$(CXX) $(LD_USB_FLAGS_F) $(OBJS) $(LIBS) -o $@
+	$(CC) $(LD_USB_FLAGS_F) $(OBJS) $(LIBS) -o $@
 	@echo ' '
 
 #-----------------------------------------------------------------------------#

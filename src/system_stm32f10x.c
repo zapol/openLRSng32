@@ -120,8 +120,8 @@
 /* #define SYSCLK_FREQ_56MHz  56000000 */
 
 // AKA for 80mhz clock
-/* #define SYSCLK_FREQ_72MHz  72000000 */
-#define SYSCLK_FREQ_80MHz   80000000
+#define SYSCLK_FREQ_72MHz  72000000
+//#define SYSCLK_FREQ_80MHz   80000000
 #endif
 
 /*!< Uncomment the following line if you need to use external SRAM mounted
