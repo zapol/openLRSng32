@@ -790,9 +790,7 @@ static uint8_t dmp_processed_packet[8];
 static uint8_t dmp_received_packet[50];
 static uint8_t dmp_temp = 0;
 uint8_t dmp_fifoCountL = 0;
-static uint8_t dmp_fifoCountL2 = 0;
 static uint8_t dmp_packetCount = 0x00;
-static bool dmp_longPacket = false;
 static bool dmp_firstPacket = true;
 
 static volatile struct mpu6050data mpu6050data;
@@ -912,9 +910,9 @@ void mpu6050DmpProcessQuat(uint8_t *packet, struct mpu6050data *data)
 	// yaw: (about Z axis)
     data->yaw = atan2(2*data->quat_x*data->quat_y - 2*data->quat_w*data->quat_z, 2*data->quat_w*data->quat_w + 2*data->quat_x*data->quat_x - 1);
 	// pitch: (nose up/down, about Y axis)
-    data->pitch = atan(data->grav_x / sqrt(data->grav_y*data->grav_y + data->grav_z*data->grav_z));
+    data->roll = atan(data->grav_x / sqrt(data->grav_y*data->grav_y + data->grav_z*data->grav_z));
 	// roll: (tilt left/right, about X axis)
-    data->roll = atan(data->grav_y / sqrt(data->grav_x*data->grav_x + data->grav_z*data->grav_z));
+    data->pitch = atan(data->grav_y / sqrt(data->grav_x*data->grav_x + data->grav_z*data->grav_z));
 
 //    printf("Quaternion: %10d %10d %10d %10d\n", qlw, qlx, qly, qlz);
 //    printf("Angle: %10d %10d\n", angle[0], angle[1]);
@@ -932,22 +930,7 @@ void mpu6050DmpResetFifo(void)
 
 static void mpu6050DmpGetPacket(void)
 {
-    if (dmp_fifoCountL > 32)
-    {
-        dmp_fifoCountL2 = dmp_fifoCountL - 32;
-        dmp_longPacket = true;
-    }
-
-    if (dmp_longPacket)
-    {
-        i2cRead(MPU6050_ADDRESS, MPU_RA_FIFO_R_W, 32, dmp_received_packet);
-        i2cRead(MPU6050_ADDRESS, MPU_RA_FIFO_R_W, dmp_fifoCountL, dmp_received_packet + 32);
-        dmp_longPacket = false;
-    }
-    else
-    {
-        i2cRead(MPU6050_ADDRESS, MPU_RA_FIFO_R_W, dmp_fifoCountL, dmp_received_packet);
-    }
+	i2cRead(MPU6050_ADDRESS, MPU_RA_FIFO_R_W, dmp_fifoCountL, dmp_received_packet);
 }
 
 uint16_t dmpFifoLevel = 0;

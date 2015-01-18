@@ -255,11 +255,11 @@ void scannerMode(void) {
  * OpenLRSng receiver code
  ****************************************************/
 
-volatile uint16_t rcvPPM[PPM_CHANNELS] = { 512, 512, 512, 512, 512, 512, 512, 512,
+uint16_t rcvPPM[PPM_CHANNELS] = { 512, 512, 512, 512, 512, 512, 512, 512,
 		512, 512, 512, 512, 512, 512, 512, 512 };
-volatile uint16_t autoPPM[PPM_CHANNELS] = { 512, 512, 512, 512, 512, 512, 512, 512,
+uint16_t autoPPM[PPM_CHANNELS] = { 512, 512, 512, 512, 512, 512, 512, 512,
 		512, 512, 512, 512, 512, 512, 512, 512 };
-volatile uint16_t outPPM[PPM_CHANNELS] = { 512, 512, 512, 512, 512, 512, 512, 512,
+uint16_t outPPM[PPM_CHANNELS] = { 512, 512, 512, 512, 512, 512, 512, 512,
 		512, 512, 512, 512, 512, 512, 512, 512 };
 
 uint8_t RF_channel = 0;
@@ -780,11 +780,11 @@ void loop(void) {
 
 	if(imuIntFired)
 	{
-		int tmpmicros1;
-		tmpmicros1 = micros();
+//		int tmpmicros1;
+//		tmpmicros1 = micros();
 		imuIntFired = 0;
 		mpu6050DmpLoop();
-		printf("%dus\n",micros()-tmpmicros1);
+//		printf("%dus\n",micros()-tmpmicros1);
 	}
 }
 
