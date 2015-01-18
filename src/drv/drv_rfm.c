@@ -353,20 +353,22 @@ void beacon_send(uint8_t unit)
 }
 
 static volatile uint8_t rfmIntFired[2] = {0, 0};
+volatile uint8_t imuIntFired = 0;
 
 void EXTI15_10_IRQHandler(void)
 {
-    if (EXTI_GetITStatus(EXTI_Line13) == SET)
-    {
-        EXTI_ClearITPendingBit(EXTI_Line13);
-        rfmIntFired[0] = 1;
-    }
+	if (EXTI_GetITStatus(EXTI_Line13) == SET)
+	{
+		EXTI_ClearITPendingBit(EXTI_Line13);
+		rfmIntFired[0] = 1;
+	}
 
-    // if (EXTI_GetITStatus(EXTI_Line14) == SET)
-    // {
-    //     EXTI_ClearITPendingBit(EXTI_Line14);
-    //     rfmIntFired[1] = 1;
-    // }
+	if (EXTI_GetITStatus(EXTI_Line14) == SET)
+	{
+		EXTI_ClearITPendingBit(EXTI_Line14);
+//		mpu6050DmpLoop();
+		imuIntFired = 1;
+	}
 }
 
 int8_t rfmCheckInt(uint8_t unit)
@@ -390,7 +392,7 @@ static void setupRFMints(void)
     EXTI_InitTypeDef EXTI_InitStructure;
     NVIC_InitTypeDef NVIC_InitStructure;
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13/* | GPIO_Pin_14*/;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_13 | GPIO_Pin_14;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IPU;
     GPIO_Init(GPIOC, &GPIO_InitStructure);
@@ -402,12 +404,12 @@ static void setupRFMints(void)
     EXTI_InitStructure.EXTI_LineCmd = ENABLE;
     EXTI_Init(&EXTI_InitStructure);
 
-    // GPIO_EXTILineConfig(GPIO_PortSourceGPIOC, GPIO_PinSource14);
-    // EXTI_InitStructure.EXTI_Line = EXTI_Line14;
-    // EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
-    // EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Falling;
-    // EXTI_InitStructure.EXTI_LineCmd = ENABLE;
-    // EXTI_Init(&EXTI_InitStructure);
+	GPIO_EXTILineConfig(GPIO_PortSourceGPIOC, GPIO_PinSource14);
+	EXTI_InitStructure.EXTI_Line = EXTI_Line14;
+	EXTI_InitStructure.EXTI_Mode = EXTI_Mode_Interrupt;
+	EXTI_InitStructure.EXTI_Trigger = EXTI_Trigger_Rising;
+	EXTI_InitStructure.EXTI_LineCmd = ENABLE;
+	EXTI_Init(&EXTI_InitStructure);
 
     // Enable and set EXTI10-15 Interrupt to the lowest priority
     NVIC_InitStructure.NVIC_IRQChannel = EXTI15_10_IRQn;

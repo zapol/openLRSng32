@@ -368,6 +368,20 @@
 #define MPU60X0_DMP_MEMORY_BANK_SIZE    256
 #define MPU60X0_DMP_MEMORY_CHUNK_SIZE   16
 
+struct mpu6050data {
+	float quat_w;
+	float quat_x;
+	float quat_y;
+	float quat_z;
+	float grav_x;
+	float grav_y;
+	float grav_z;
+	float yaw;
+	float pitch;
+	float roll;
+};
+
+struct mpu6050data* mpu6050GetData(void);
 void mpu6050SetClockSource(uint8_t source);
 void mpu6050SetFullScaleGyroRange(uint8_t range);
 void mpu6050SetFullScaleAccelRange(uint8_t range);

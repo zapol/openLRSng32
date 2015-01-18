@@ -431,6 +431,7 @@ uint8_t tx_buf[9]; // TX buffer (downlink)(type plus 8 x data)
 #ifdef USE_ECC
 uint8_t rx_ecc_buf[21 + NPAR];
 #endif
+extern volatile uint8_t imuIntFired;
 
 //############ MAIN LOOP ##############
 void loop(void) {
@@ -776,15 +777,21 @@ void loop(void) {
 			}
 		}
 	}
+
+	if(imuIntFired)
+	{
+		int tmpmicros1;
+		tmpmicros1 = micros();
+		imuIntFired = 0;
+		mpu6050DmpLoop();
+		printf("%dus\n",micros()-tmpmicros1);
+	}
 }
 
 int main(void) {
 	uint8_t i;
 	systemInit();
 	delay(10);
-
-	uint32_t newtime = millis() + 1000;
-	uint32_t currenttime = millis() + 1000;
 
 	init_printf(NULL, _putc);
 	uartInit(115200);

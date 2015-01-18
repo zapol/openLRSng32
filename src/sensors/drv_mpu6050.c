@@ -262,6 +262,7 @@ void mpu6050Init(void)
 	mpu6050SetFullScaleGyroRange(MPU60X0_GYRO_FS_250);
 	mpu6050SetFullScaleAccelRange(MPU60X0_ACCEL_FS_2);
 	mpu6050SetSleepEnabled(false);
+	mpu6050DmpLoop();
 }
 
 uint8_t mpu6050DmpInitialize()
@@ -551,11 +552,11 @@ void mpu6050GyroInit(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
 
-//    // PB5 - MPU_INT output on rev4 hardware
-//    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5;
-//    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-//    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-//    GPIO_Init(GPIOB, &GPIO_InitStructure);
+    // PB5 - MPU_INT output on rev4 hardware
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_14;
+    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+    GPIO_Init(GPIOC, &GPIO_InitStructure);
 
 #ifndef MPU6050_DMP
     i2cWrite(MPU6050_ADDRESS, MPU_RA_PWR_MGMT_1, 0x80);      //PWR_MGMT_1    -- DEVICE_RESET 1
@@ -781,7 +782,7 @@ const uint8_t dmp_updates[29][9] =
     {0x07, 0x46, 0x01, 0x9A},   //CFG_GYRO_SOURCE inv_send_gyro
     {0x07, 0x47, 0x04, 0xF1, 0x28, 0x30, 0x38}, //CFG_9 inv_send_gyro -> inv_construct3_fifo
     {0x07, 0x6C, 0x04, 0xF1, 0x28, 0x30, 0x38}, //CFG_12 inv_send_accel -> inv_construct3_fifo
-    {0x02, 0x16, 0x02, 0x00, 0x00},     //D_0_22 inv_set_fifo_rate
+    {0x02, 0x16, 0x02, 0x00, 0x09},     //D_0_22 inv_set_fifo_rate
 };
 
 static long dmp_lastRead = 0;
@@ -794,12 +795,20 @@ static uint8_t dmp_packetCount = 0x00;
 static bool dmp_longPacket = false;
 static bool dmp_firstPacket = true;
 
+static volatile struct mpu6050data mpu6050data;
+
 static void mpu6050DmpMemInit(void);
 static void mpu6050DmpBankSelect(uint8_t bank);
 static bool mpu6050DmpFifoReady(void);
 static void mpu6050DmpGetPacket(void);
-static void mpu6050DmpProcessQuat(void);
+static void mpu6050DmpProcessQuat(uint8_t *packet, struct mpu6050data *data);
 void mpu6050DmpResetFifo(void);
+
+
+struct mpu6050data* mpu6050GetData()
+{
+	return &mpu6050data;
+}
 
 static void mpu6050DmpInit(void)
 {
@@ -836,6 +845,7 @@ void mpu6050DmpLoop(void)
 
     if (mpu6050DmpFifoReady())
     {
+//    	printf("Fifo ready\n");
         mpu6050DmpGetPacket();
 
         i2cRead(MPU6050_ADDRESS, MPU_RA_INT_STATUS, 1, &temp);
@@ -859,7 +869,7 @@ void mpu6050DmpLoop(void)
 
         if (dmp_fifoCountL == 42)
         {
-            mpu6050DmpProcessQuat();
+            mpu6050DmpProcessQuat(dmp_received_packet, &mpu6050data);
         }
     }
 }
@@ -867,41 +877,48 @@ void mpu6050DmpLoop(void)
 #define dmp_quatTake32(a, b) (((a)[4*(b)+0]<<8) | ((a)[4*(b)+1]<<0))
 extern int16_t angle[2];
 
-static void mpu6050DmpProcessQuat(void)
+void mpu6050DmpProcessQuat(uint8_t *packet, struct mpu6050data *data)
 {
-    float quat0, quat1, quat2, quat3;
-    int32_t quatl0, quatl1, quatl2, quatl3;
+    int16_t qlw, qlx, qly, qlz;
 
-    quatl0 = dmp_quatTake32(dmp_received_packet, 0);
-    quatl1 = dmp_quatTake32(dmp_received_packet, 1);
-    quatl2 = dmp_quatTake32(dmp_received_packet, 2);
-    quatl3 = dmp_quatTake32(dmp_received_packet, 3);
+//    printf("Calculating quaternion\n");
+    qlw = dmp_quatTake32(packet, 0);
+    qlx = dmp_quatTake32(packet, 1);
+    qly = dmp_quatTake32(packet, 2);
+    qlz = dmp_quatTake32(packet, 3);
 
-    if (quatl0 > 32767)
-        quatl0 -= 65536;
+//    if (qlw > 32767)
+//    	qlw -= 65536;
+//
+//    if (qlx > 32767)
+//    	qlx -= 65536;
+//
+//    if (qly > 32767)
+//    	qly -= 65536;
+//
+//    if (qlz > 32767)
+//    	qlz -= 65536;
 
-    if (quatl1 > 32767)
-        quatl1 -= 65536;
+    data->quat_w = ((float) qlw) / 16384.0f;
+    data->quat_x = ((float) qlx) / 16384.0f;
+    data->quat_y = ((float) qly) / 16384.0f;
+    data->quat_z = ((float) qlz) / 16384.0f;
 
-    if (quatl2 > 32767)
-        quatl2 -= 65536;
+    data->grav_x = 2 * (data->quat_x*data->quat_z - data->quat_w*data->quat_y);
+    data->grav_y = 2 * (data->quat_w*data->quat_x + data->quat_y*data->quat_z);
+    data->grav_z = data->quat_w*data->quat_w - data->quat_x*data->quat_x - data->quat_y*data->quat_y + data->quat_z*data->quat_z;
 
-    if (quatl3 > 32767)
-        quatl3 -= 65536;
 
-    quat0 = ((float) quatl0) / 16384.0f;
-    quat1 = ((float) quatl1) / 16384.0f;
-    quat2 = ((float) quatl2) / 16384.0f;
-    quat3 = ((float) quatl3) / 16384.0f;
+	// yaw: (about Z axis)
+    data->yaw = atan2(2*data->quat_x*data->quat_y - 2*data->quat_w*data->quat_z, 2*data->quat_w*data->quat_w + 2*data->quat_x*data->quat_x - 1);
+	// pitch: (nose up/down, about Y axis)
+    data->pitch = atan(data->grav_x / sqrt(data->grav_y*data->grav_y + data->grav_z*data->grav_z));
+	// roll: (tilt left/right, about X axis)
+    data->roll = atan(data->grav_y / sqrt(data->grav_x*data->grav_x + data->grav_z*data->grav_z));
 
-    dmpdata[0] = atan2f(2 * ((quat0 * quat1) + (quat2 * quat3)), 1.0 - (2 * ((quat1 * quat1) + (quat2 * quat2)))) * (180.0f / M_PI);
-    dmpdata[1] = asinf(2 * ((quat0 * quat2) - (quat3 * quat1))) * (180.0f / M_PI);
-    angle[0] = dmpdata[0] * 10;
-    angle[1] = dmpdata[1] * 10;
-
-    dmpGyroData[0] = ((dmp_received_packet[4 * 4 + 0] << 8) | (dmp_received_packet[4 * 4 + 1] << 0));
-    dmpGyroData[1] = ((dmp_received_packet[4 * 5 + 0] << 8) | (dmp_received_packet[4 * 5 + 1] << 0));
-    dmpGyroData[2] = ((dmp_received_packet[4 * 6 + 0] << 8) | (dmp_received_packet[4 * 6 + 1] << 0));
+//    printf("Quaternion: %10d %10d %10d %10d\n", qlw, qlx, qly, qlz);
+//    printf("Angle: %10d %10d\n", angle[0], angle[1]);
+//    printf("Yaw: %4d, Pitch: %4d, Roll: %4d\n", (int)(data->yaw*360/M_PI), (int)(data->pitch*360/M_PI), (int)(data->roll*360/M_PI));
 }
 
 void mpu6050DmpResetFifo(void)
