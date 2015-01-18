@@ -63,7 +63,7 @@ static void i2c_er_handler(void)
     if (SR1Register & 0x0700)
     {
         SR2Register = I2Cx->SR2;        //read second status register to clear ADDR if it is set (note that BTF will not be set after a NACK)
-        SR2Register = SR2Register;
+//        SR2Register = SR2Register;
         I2C_ITConfig(I2Cx, I2C_IT_BUF, DISABLE);        //disable the RXNE/TXE interrupt - prevent the ISR tailchaining onto the ER (hopefully)
 
         if (!(SR1Register & 0x0200) && !(I2Cx->CR1 & 0x0200))    //if we dont have an ARLO error, ensure sending of a stop
@@ -348,7 +348,7 @@ void i2cInit(I2C_TypeDef *I2C)
     I2C_InitTypeDef I2C_InitStructure;
 
     // Init pins
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10 | GPIO_Pin_11;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
@@ -373,14 +373,14 @@ void i2cInit(I2C_TypeDef *I2C)
     NVIC_PriorityGroupConfig(0x500);
 
     // I2C ER Interrupt
-    NVIC_InitStructure.NVIC_IRQChannel = I2C2_ER_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannel = I2C1_ER_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelSubPriority = 0;
     NVIC_InitStructure.NVIC_IRQChannelCmd = ENABLE;
     NVIC_Init(&NVIC_InitStructure);
 
     // I2C EV Interrupt
-    NVIC_InitStructure.NVIC_IRQChannel = I2C2_EV_IRQn;
+    NVIC_InitStructure.NVIC_IRQChannel = I2C1_EV_IRQn;
     NVIC_InitStructure.NVIC_IRQChannelPreemptionPriority = 0;
     NVIC_Init(&NVIC_InitStructure);
 
@@ -396,24 +396,24 @@ static void i2cUnstick(void)
     GPIO_InitTypeDef GPIO_InitStructure;
     uint8_t i;
 
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10 | GPIO_Pin_11;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_Out_OD;
     GPIO_Init(GPIOB, &GPIO_InitStructure);
 
-    GPIO_SetBits(GPIOB, GPIO_Pin_10 | GPIO_Pin_11);
+    GPIO_SetBits(GPIOB, GPIO_Pin_6 | GPIO_Pin_7);
 
     for (i = 0; i < 8; i++)
     {
         // Wait for any clock stretching to finish
-        while (!GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_10))
+        while (!GPIO_ReadInputDataBit(GPIOB, GPIO_Pin_6))
             delayMicroseconds(10);
 
         // Pull low
-        GPIO_ResetBits(GPIOB, GPIO_Pin_10); //Set bus low
+        GPIO_ResetBits(GPIOB, GPIO_Pin_6); //Set bus low
         delayMicroseconds(10);
         // Release high again
-        GPIO_SetBits(GPIOB, GPIO_Pin_10); //Set bus high
+        GPIO_SetBits(GPIOB, GPIO_Pin_6); //Set bus high
         delayMicroseconds(10);
     }
 
@@ -421,16 +421,16 @@ static void i2cUnstick(void)
     // SCL  PB10
     // SDA  PB11
 
-    GPIO_ResetBits(GPIOB, GPIO_Pin_11); // Set bus data low
+    GPIO_ResetBits(GPIOB, GPIO_Pin_7); // Set bus data low
     delayMicroseconds(10);
-    GPIO_ResetBits(GPIOB, GPIO_Pin_10); // Set bus scl low
+    GPIO_ResetBits(GPIOB, GPIO_Pin_6); // Set bus scl low
     delayMicroseconds(10);
-    GPIO_SetBits(GPIOB, GPIO_Pin_10); // Set bus scl high
+    GPIO_SetBits(GPIOB, GPIO_Pin_6); // Set bus scl high
     delayMicroseconds(10);
-    GPIO_SetBits(GPIOB, GPIO_Pin_11); // Set bus sda high
+    GPIO_SetBits(GPIOB, GPIO_Pin_7); // Set bus sda high
 
     // Init pins
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_10 | GPIO_Pin_11;
+    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_6 | GPIO_Pin_7;
     GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
     GPIO_InitStructure.GPIO_Mode = GPIO_Mode_AF_OD;
     GPIO_Init(GPIOB, &GPIO_InitStructure);

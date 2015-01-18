@@ -35,8 +35,6 @@ extern uint32_t USART_Rx_ptr_out;
 extern uint32_t USART_Rx_length;
 extern uint8_t  USB_Tx_State;
 
-__IO int debug_continue=0;
-
 /* Private function prototypes -----------------------------------------------*/
 /* Private functions ---------------------------------------------------------*/
 
@@ -97,8 +95,8 @@ void EP3_OUT_Callback(void)
 
   /* USB data will be immediately processed, this allow next USB traffic beeing
   NAKed till the end of the USART Xfet */
-  if(USB_Rx_Cnt)
-    debug_continue=1;
+//  if(USB_Rx_Cnt)
+//    debug_continue=1;
 
   //USB_To_USART_Send_Data(USB_Rx_Buffer, USB_Rx_Cnt);
 

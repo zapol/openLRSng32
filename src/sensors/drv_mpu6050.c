@@ -1,11 +1,13 @@
 #include "board.h"
+#include "drv_mpu6050.h"
+#include "drv/drv_i2c.h"
 
 // MPU6050, Standard address 0x68
 // MPU_INT on PB13 on rev4 hardware
 #define MPU6050_ADDRESS         0x68
 
 // Experimental DMP support
-// #define MPU6050_DMP
+#define MPU6050_DMP
 
 #define DMP_MEM_START_ADDR 0x6E
 #define DMP_MEM_R_W 0x6F
@@ -148,8 +150,8 @@ bool mpu6050Detect(uint16_t lpf, uint8_t *scale)
         return false;
 
     // So like, MPU6xxx has a "WHO_AM_I" register, that is used to verify the identity of the device.
-    // The contents of WHO_AM_I are the upper 6 bits of the MPU-60X0’s 7-bit I2C address.
-    // The least significant bit of the MPU-60X0’s I2C address is determined by the value of the AD0 pin. (we know that already).
+    // The contents of WHO_AM_I are the upper 6 bits of the MPU-60X0ï¿½s 7-bit I2C address.
+    // The least significant bit of the MPU-60X0ï¿½s I2C address is determined by the value of the AD0 pin. (we know that already).
     // But here's the best part: The value of the AD0 pin is not reflected in this register.
     if (sig != (MPU6050_ADDRESS & 0x7e))
         return false;
@@ -248,12 +250,275 @@ bool mpu6050Detect(uint16_t lpf, uint8_t *scale)
     return true;
 }
 
-void mpu6050AccInit(void)
+void mpu6050GPIOInit(void)
 {
-    //    if (mpuAccelHalf)
-    //      acc_1G = 255;
-    //  else
-    //      acc_1G = 512;
+
+}
+
+void mpu6050Init(void)
+{
+	i2cInit(I2C1);
+	mpu6050SetClockSource(MPU60X0_CLOCK_PLL_XGYRO);
+	mpu6050SetFullScaleGyroRange(MPU60X0_GYRO_FS_250);
+	mpu6050SetFullScaleAccelRange(MPU60X0_ACCEL_FS_2);
+	mpu6050SetSleepEnabled(false);
+}
+
+uint8_t mpu6050DmpInitialize()
+{
+//    // reset device
+//    DEBUG_PRINTF("\n\nResetting MPU60X0...\n");
+//    mpu6050Reset();
+//    delay(30); // wait after reset
+//
+//    // enable sleep mode and wake cycle
+//    /*Serial.println(F("Enabling sleep mode..."));
+//    setSleepEnabled(true);
+//    Serial.println(F("Enabling wake cycle..."));
+//    setWakeCycleEnabled(true);*/
+//
+//    // disable sleep mode
+//    DEBUG_PRINTF("Disabling sleep mode...\n");
+//    mpu6050SetSleepEnabled(false);
+//
+//    // get MPU hardware revision
+//    DEBUG_PRINTF("Selecting user bank 16...\n");
+//    mpu6050DmpBankSelect(0x10, true, true);
+//    DEBUG_PRINTF("Selecting memory byte 6...\n");
+//    setMemoryStartAddress(0x06);
+//    DEBUG_PRINTF("Checking hardware revision...\n");
+//    uint8_t hwRevision = readMemoryByte();
+//    DEBUG_PRINTF("Revision @ user[16][6] = %x\n", hwRevision);
+//    DEBUG_PRINTF("Resetting memory bank selection to 0...\n");
+//    mpu6050DmpBankSelect(0, false, false);
+//
+//    // check OTP bank valid
+//    DEBUG_PRINTF("Reading OTP bank valid flag...\n");
+//    uint8_t otpValid = getOTPBankValid();
+//    DEBUG_PRINTF("OTP bank is %s\n",otpValid ? "valid!" : "invalid!");
+//
+//    // get X/Y/Z gyro offsets
+//    DEBUG_PRINTF("Reading gyro offset values...\n");
+//    int8_t xgOffset = getXGyroOffset();
+//    int8_t ygOffset = getYGyroOffset();
+//    int8_t zgOffset = getZGyroOffset();
+//    DEBUG_PRINTF("X gyro offset = %d\n",xgOffset);
+//    DEBUG_PRINTF("Y gyro offset = %d\n",ygOffset);
+//    DEBUG_PRINTF("Z gyro offset = %d\n",zgOffset);
+//
+//	// setup weird slave stuff (?)
+//	DEBUG_PRINTF("Setting slave 0 address to 0x7F...\n");
+//	setSlaveAddress(0, 0x7F);
+//	DEBUG_PRINTF("Disabling I2C Master mode...\n");
+//	setI2CMasterModeEnabled(false);
+//	DEBUG_PRINTF("Setting slave 0 address to 0x68 (self)...\n");
+//	setSlaveAddress(0, 0x68);
+//	DEBUG_PRINTF("Resetting I2C Master control...\n");
+//	resetI2CMaster();
+//	delay(20);
+//
+//    // load DMP code into memory banks
+//    DEBUG_PRINTF("Writing DMP code to MPU memory banks (%d bytes)\n", MPU60X0_DMP_CODE_SIZE));
+//    if (writeProgMemoryBlock(dmpMemory, MPU60X0_DMP_CODE_SIZE)) {
+//        DEBUG_PRINTF("Success! DMP code written and verified.\n");
+//
+//        // write DMP configuration
+//        DEBUG_PRINTF("Writing DMP configuration to MPU memory banks (%d bytes in config def)\n",MPU60X0_DMP_CONFIG_SIZE);
+//        if (writeProgDMPConfigurationSet(dmpConfig, MPU60X0_DMP_CONFIG_SIZE)) {
+//            DEBUG_PRINTF("Success! DMP configuration written and verified.\n");
+//
+//            DEBUG_PRINTF("Setting clock source to Z Gyro...\n");
+//            setClockSource(MPU60X0_CLOCK_PLL_ZGYRO);
+//
+//            DEBUG_PRINTF("Setting DMP and FIFO_OFLOW interrupts enabled...\n");
+//            setIntEnabled(0x12);
+//
+//            DEBUG_PRINTF("Setting sample rate to 200Hz...\n");
+//            setRate(4); // 1khz / (1 + 4) = 200 Hz
+//
+//            DEBUG_PRINTF("Setting external frame sync to TEMP_OUT_L[0]...\n");
+//            setExternalFrameSync(MPU60X0_EXT_SYNC_TEMP_OUT_L);
+//
+//            DEBUG_PRINTF("Setting DLPF bandwidth to 42Hz...\n");
+//            setDLPFMode(MPU60X0_DLPF_BW_42);
+//
+//            DEBUG_PRINTF("Setting gyro sensitivity to +/- 2000 deg/sec...\n");
+//            setFullScaleGyroRange(MPU60X0_GYRO_FS_2000);
+//
+//            DEBUG_PRINTF("Setting DMP configuration bytes (function unknown)...\n");
+//            setDMPConfig1(0x03);
+//            setDMPConfig2(0x00);
+//
+//            DEBUG_PRINTF("Clearing OTP Bank flag...\n");
+//            setOTPBankValid(false);
+//
+//            DEBUG_PRINTF("Setting X/Y/Z gyro offsets to previous values...\n");
+//            setXGyroOffset(xgOffset);
+//            setYGyroOffset(ygOffset);
+//            setZGyroOffset(zgOffset);
+//
+//            DEBUG_PRINTF("Setting X/Y/Z gyro user offsets to zero...");
+//            setXGyroOffsetUser(0);
+//            setYGyroOffsetUser(0);
+//            setZGyroOffsetUser(0);
+//
+//            DEBUG_PRINTF("Writing final memory update 1/7 (function unknown)...\n");
+//            uint8_t dmpUpdate[16], j;
+//            uint16_t pos = 0;
+//            for (j = 0; j < 4 || j < dmpUpdate[2] + 3; j++, pos++) dmpUpdate[j] = pgm_read_byte(&dmpUpdates[pos]);
+//            writeMemoryBlock(dmpUpdate + 3, dmpUpdate[2], dmpUpdate[0], dmpUpdate[1]);
+//
+//            DEBUG_PRINTF("Writing final memory update 2/7 (function unknown)...\n");
+//            for (j = 0; j < 4 || j < dmpUpdate[2] + 3; j++, pos++) dmpUpdate[j] = pgm_read_byte(&dmpUpdates[pos]);
+//            writeMemoryBlock(dmpUpdate + 3, dmpUpdate[2], dmpUpdate[0], dmpUpdate[1]);
+//
+//            DEBUG_PRINTF("Resetting FIFO...\n");
+//            resetFIFO();
+//
+//            DEBUG_PRINTF("Reading FIFO count...\n");
+//            uint8_t fifoCount = getFIFOCount();
+//            uint8_t fifoBuffer[128];
+//
+//            DEBUG_PRINTF("Current FIFO count=%d\n",fifoCount);
+//            getFIFOBytes(fifoBuffer, fifoCount);
+//
+//            DEBUG_PRINTF("Setting motion detection threshold to 2...\n");
+//            setMotionDetectionThreshold(2);
+//
+//            DEBUG_PRINTF("Setting zero-motion detection threshold to 156...\n");
+//            setZeroMotionDetectionThreshold(156);
+//
+//            DEBUG_PRINTF("Setting motion detection duration to 80...\n");
+//            setMotionDetectionDuration(80);
+//
+//            DEBUG_PRINTF("Setting zero-motion detection duration to 0...\n");
+//            setZeroMotionDetectionDuration(0);
+//
+//            DEBUG_PRINTF("Resetting FIFO...\n");
+//            resetFIFO();
+//
+//            DEBUG_PRINTF("Enabling FIFO...\n");
+//            setFIFOEnabled(true);
+//
+//            DEBUG_PRINTF("Enabling DMP...\n");
+//            setDMPEnabled(true);
+//
+//            DEBUG_PRINTF("Resetting DMP...\n");
+//            resetDMP();
+//
+//            DEBUG_PRINTF("Writing final memory update 3/7 (function unknown)...\n");
+//            for (j = 0; j < 4 || j < dmpUpdate[2] + 3; j++, pos++) dmpUpdate[j] = pgm_read_byte(&dmpUpdates[pos]);
+//            writeMemoryBlock(dmpUpdate + 3, dmpUpdate[2], dmpUpdate[0], dmpUpdate[1]);
+//
+//            DEBUG_PRINTF("Writing final memory update 4/7 (function unknown)...\n");
+//            for (j = 0; j < 4 || j < dmpUpdate[2] + 3; j++, pos++) dmpUpdate[j] = pgm_read_byte(&dmpUpdates[pos]);
+//            writeMemoryBlock(dmpUpdate + 3, dmpUpdate[2], dmpUpdate[0], dmpUpdate[1]);
+//
+//            DEBUG_PRINTF("Writing final memory update 5/7 (function unknown)...\n");
+//            for (j = 0; j < 4 || j < dmpUpdate[2] + 3; j++, pos++) dmpUpdate[j] = pgm_read_byte(&dmpUpdates[pos]);
+//            writeMemoryBlock(dmpUpdate + 3, dmpUpdate[2], dmpUpdate[0], dmpUpdate[1]);
+//
+//            DEBUG_PRINTF("Waiting for FIFO count > 2...\n");
+//            while ((fifoCount = getFIFOCount()) < 3);
+//
+//            DEBUG_PRINTF("Current FIFO count=%d\n",fifoCount);
+//            getFIFOBytes(fifoBuffer, fifoCount);
+//
+//            DEBUG_PRINTLN(F("Reading interrupt status..."));
+//            uint8_t mpuIntStatus = getIntStatus();
+//
+//            DEBUG_PRINTF("Current interrupt status=%x\n",mpuIntStatus);
+//
+//            DEBUG_PRINTF("Reading final memory update 6/7 (function unknown)...\n");
+//            for (j = 0; j < 4 || j < dmpUpdate[2] + 3; j++, pos++) dmpUpdate[j] = pgm_read_byte(&dmpUpdates[pos]);
+//            readMemoryBlock(dmpUpdate + 3, dmpUpdate[2], dmpUpdate[0], dmpUpdate[1]);
+//
+//            DEBUG_PRINTF("Waiting for FIFO count > 2...\n");
+//            while ((fifoCount = getFIFOCount()) < 3);
+//
+//            DEBUG_PRINTF("Current FIFO count=%d\n",fifoCount);
+//
+//            DEBUG_PRINTF("Reading FIFO data...\n");
+//            getFIFOBytes(fifoBuffer, fifoCount);
+//
+//            DEBUG_PRINTF("Reading interrupt status...\n");
+//            mpuIntStatus = getIntStatus();
+//
+//            DEBUG_PRINTF("Current interrupt status=%x\n",mpuIntStatus);
+//
+//            DEBUG_PRINTF("Writing final memory update 7/7 (function unknown)...\n");
+//            for (j = 0; j < 4 || j < dmpUpdate[2] + 3; j++, pos++) dmpUpdate[j] = pgm_read_byte(&dmpUpdates[pos]);
+//            writeMemoryBlock(dmpUpdate + 3, dmpUpdate[2], dmpUpdate[0], dmpUpdate[1]);
+//
+//            DEBUG_PRINTF("DMP is good to go! Finally.\n");
+//
+//            DEBUG_PRINTF("Disabling DMP (you turn it on later)...\n");
+//            setDMPEnabled(false);
+//
+//            DEBUG_PRINTF("Setting up internal 42-byte (default) DMP packet buffer...\n");
+//            dmpPacketSize = 42;
+///*            if ((dmpPacketBuffer = (uint8_t *)malloc(42)) == 0) {
+//                return 3; // TODO: proper error code for no memory
+//            }
+//*/
+//            DEBUG_PRINTF("Resetting FIFO and clearing INT status one last time...\n");
+//            resetFIFO();
+//            getIntStatus();
+//        } else {
+//            DEBUG_PRINTF("ERROR! DMP configuration verification failed.\n");
+//            return 2; // configuration block loading failed
+//        }
+//    } else {
+//        DEBUG_PRINTF("ERROR! DMP code verification failed.\n");
+//        return 1; // main binary block loading failed
+//    }
+//    return 0; // success
+//
+}
+
+void mpu6050SetClockSource(uint8_t source)
+{
+	uint8_t reg;
+	i2cRead(MPU6050_ADDRESS, MPU60X0_RA_PWR_MGMT_1, 1,&reg),
+	reg &= ~0x07;
+	reg |= (source&0x07);
+	i2cWrite(MPU6050_ADDRESS, MPU60X0_RA_PWR_MGMT_1, reg);
+}
+
+void mpu6050SetFullScaleGyroRange(uint8_t range)
+{
+	uint8_t reg;
+	i2cRead(MPU6050_ADDRESS, MPU60X0_RA_GYRO_CONFIG, 1,&reg),
+	reg &= ~0x18;
+	reg |= (range&0x03)<<2;
+	i2cWrite(MPU6050_ADDRESS, MPU60X0_RA_GYRO_CONFIG, reg);
+}
+
+void mpu6050SetFullScaleAccelRange(uint8_t range)
+{
+	uint8_t reg;
+	i2cRead(MPU6050_ADDRESS, MPU60X0_RA_ACCEL_CONFIG, 1,&reg),
+	reg &= ~0x18;
+	reg |= (range&0x03)<<2;
+	i2cWrite(MPU6050_ADDRESS, MPU60X0_RA_ACCEL_CONFIG, reg);
+}
+
+void mpu6050SetSleepEnabled(bool enable)
+{
+	uint8_t reg;
+	i2cRead(MPU6050_ADDRESS, MPU60X0_RA_PWR_MGMT_1, 1,&reg),
+	reg &= ~(1<<MPU60X0_PWR1_SLEEP_BIT);
+	reg |= enable<<MPU60X0_PWR1_SLEEP_BIT;
+	i2cWrite(MPU6050_ADDRESS, MPU60X0_RA_PWR_MGMT_1, reg);
+}
+
+void mpu6050Reset(void)
+{
+	uint8_t reg;
+	i2cRead(MPU6050_ADDRESS, MPU60X0_RA_PWR_MGMT_1, 1,&reg),
+	reg &= ~(1<<MPU60X0_PWR1_DEVICE_RESET_BIT);
+	reg |= 1<<MPU60X0_PWR1_DEVICE_RESET_BIT;
+	i2cWrite(MPU6050_ADDRESS, MPU60X0_RA_PWR_MGMT_1, reg);
 }
 
 void mpu6050AccRead(int16_t *accData)
@@ -279,18 +544,18 @@ void mpu6050AccAlign(int16_t *accData)
     // official direction is RPY
     accData[0] = temp[1];
     accData[1] = -temp[0];
-    accData[2] = accData[2];
+//    accData[2] = accData[2];
 }
 
 void mpu6050GyroInit(void)
 {
     GPIO_InitTypeDef GPIO_InitStructure;
 
-    // PB5 - MPU_INT output on rev4 hardware
-    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5;
-    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
-    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
-    GPIO_Init(GPIOB, &GPIO_InitStructure);
+//    // PB5 - MPU_INT output on rev4 hardware
+//    GPIO_InitStructure.GPIO_Pin = GPIO_Pin_5;
+//    GPIO_InitStructure.GPIO_Speed = GPIO_Speed_2MHz;
+//    GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;
+//    GPIO_Init(GPIOB, &GPIO_InitStructure);
 
 #ifndef MPU6050_DMP
     i2cWrite(MPU6050_ADDRESS, MPU_RA_PWR_MGMT_1, 0x80);      //PWR_MGMT_1    -- DEVICE_RESET 1
@@ -325,8 +590,8 @@ void mpu6050GyroRead(int16_t *gyroData)
 void mpu6050GyroAlign(int16_t *gyroData)
 {
     // official direction is RPY
-    gyroData[0] = gyroData[0];
-    gyroData[1] = gyroData[1];
+//    gyroData[0] = gyroData[0];
+//    gyroData[1] = gyroData[1];
     gyroData[2] = -gyroData[2];
 }
 
@@ -571,7 +836,6 @@ void mpu6050DmpLoop(void)
 
     if (mpu6050DmpFifoReady())
     {
-        LED1_ON;
         mpu6050DmpGetPacket();
 
         i2cRead(MPU6050_ADDRESS, MPU_RA_INT_STATUS, 1, &temp);
@@ -597,8 +861,6 @@ void mpu6050DmpLoop(void)
         {
             mpu6050DmpProcessQuat();
         }
-
-        LED1_OFF;
     }
 }
 
